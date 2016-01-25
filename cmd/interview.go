@@ -1,13 +1,15 @@
 package cmd
 
 import (
-	"github.com/mever/steam"
+	"fmt"
 	"io"
 	"os"
 	"regexp"
 	"sync"
-	"fmt"
 )
+
+// Interviewer asks a question and expects an answer
+type Interviewer func(question string, sensitive bool) string
 
 type question struct {
 	value     string
@@ -22,7 +24,7 @@ var (
 
 // AddQuestion registers a question the SteamCMD utility may ask
 // to the user. The provided regex is used to match the output line
-// from the SteamCMD utility that must compile.
+// from the SteamCMD utility, the regex must compile (causing a panic otherwise).
 func AddQuestion(regex, q string, sensitive bool) {
 	questionsMu.Lock()
 	defer questionsMu.Unlock()
@@ -34,8 +36,8 @@ func AddQuestion(regex, q string, sensitive bool) {
 }
 
 type interviewer struct {
-	fn    steam.Interviewer
-	w     io.Writer
+	fn Interviewer
+	w  io.Writer
 }
 
 // getQ matches the given bytes b to added questions
@@ -63,7 +65,7 @@ func (i *interviewer) Run(tty *os.File) {
 		for {
 			nr, er := tty.Read(buf)
 			if nr > 0 {
-//				fmt.Println(" <" + string(buf[0:nr]) + "> ")
+				//				fmt.Println(" <" + string(buf[0:nr]) + "> ")
 				if q := i.getQ(buf[0:nr]); q != nil {
 					tty.Write([]byte(i.fn(q.value, q.sensitive) + "\n"))
 				}

@@ -18,6 +18,3 @@ func (a AppId) Int() int {
 func (a AppId) Id() string {
 	return strconv.Itoa(int(a))
 }
-
-// Interviewer asks a question and expects an answer
-type Interviewer func(question string, sensitive bool) string

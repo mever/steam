@@ -1,5 +1,5 @@
 package cmd
 
-type App struct{
+type App struct {
 	dir string
 }

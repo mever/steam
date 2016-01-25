@@ -22,7 +22,6 @@ type Client struct {
 	AppsDir string
 
 	Stdout io.Writer
-	Stderr io.Writer
 
 	AuthUser string
 	AuthPw   string
@@ -41,18 +40,14 @@ func (c *Client) completeConfig() {
 	if c.Stdout == nil {
 		c.Stdout = os.Stdout
 	}
-
-	if c.Stderr == nil {
-		c.Stderr = os.Stderr
-	}
 }
 
 // GetApp returns an installed Steam application. If it returns
 // nil the app is not installed.
-func (c *Client) GetApp(appId steam.AppId) *App {
+func (c *Client) GetApp(id steam.AppId) *App {
 	c.completeConfig()
 
-	appDir := c.getAppDir(appId)
+	appDir := c.getAppDir(id)
 	var err error
 	_, err = os.Stat(appDir)
 	if os.IsNotExist(err) {
@@ -65,7 +60,7 @@ func (c *Client) GetApp(appId steam.AppId) *App {
 // InstallApp installs the app indicated by the provided Steam app id. When
 // during the installation process steam has questions for you it will
 // call the interviewer with a question.
-func (c *Client) InstallApp(app steam.AppId, i steam.Interviewer) (err error) {
+func (c *Client) InstallApp(id steam.AppId, i Interviewer) (err error) {
 	c.completeConfig()
 
 	_, err = os.Stat(c.SccDir)
@@ -73,18 +68,18 @@ func (c *Client) InstallApp(app steam.AppId, i steam.Interviewer) (err error) {
 		err = c.installClient()
 	}
 
-	return c.installApp(app, i)
+	return c.installApp(id, i)
 }
 
-func (c *Client) newInterview(i steam.Interviewer) *interviewer {
+func (c *Client) newInterview(i Interviewer) *interviewer {
 	return &interviewer{w: c.Stdout, fn: i}
 }
 
-func (c *Client) getAppDir(app steam.AppId) string {
-	return c.AppsDir + "/" + app.Id()
+func (c *Client) getAppDir(id steam.AppId) string {
+	return c.AppsDir + "/" + id.Id()
 }
 
-func (c *Client) installApp(app steam.AppId, i steam.Interviewer) error {
+func (c *Client) installApp(app steam.AppId, i Interviewer) error {
 	appDir := c.getAppDir(app)
 	cmd := c.buildCmd("+force_install_dir", appDir, "+app_update", app.Id(), "validate")
 
@@ -116,7 +111,6 @@ func (c *Client) buildCmd(a ...string) *exe.Cmd {
 	cmd := exe.Command("./steamcmd.sh", args...)
 	cmd.Dir = c.SccDir
 	cmd.Stdout = c.Stdout
-	cmd.Stderr = c.Stderr
 	return cmd
 }
 
