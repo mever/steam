@@ -11,7 +11,7 @@ import (
 // Interviewer asks a question and expects an answer
 type Interviewer func(question string, sensitive bool) string
 
-type question struct {
+type registeredQuestion struct {
 	value     string
 	sensitive bool
 	regex     *regexp.Regexp
@@ -19,7 +19,7 @@ type question struct {
 
 var (
 	questionsMu sync.Mutex
-	questions   = make([]question, 0)
+	questions   = make([]registeredQuestion, 0)
 )
 
 // AddQuestion registers a question the SteamCMD utility may ask
@@ -28,7 +28,7 @@ var (
 func AddQuestion(regex, q string, sensitive bool) {
 	questionsMu.Lock()
 	defer questionsMu.Unlock()
-	questions = append(questions, question{
+	questions = append(questions, registeredQuestion{
 		value:     q,
 		sensitive: sensitive,
 		regex:     regexp.MustCompile(regex),
@@ -43,7 +43,7 @@ type interviewer struct {
 // getQ matches the given bytes b to added questions
 // when matched the corresponding question is returned
 // else nil is returned
-func (i *interviewer) getQ(b []byte) *question {
+func (i *interviewer) getQ(b []byte) *registeredQuestion {
 	questionsMu.Lock()
 	defer questionsMu.Unlock()
 	for _, q := range questions {
