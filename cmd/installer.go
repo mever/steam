@@ -13,7 +13,7 @@ type Question struct {
 
 type Installer struct {
 	mu          sync.Mutex
-	installing  bool
+	running     bool
 	interviewer Interviewer
 
 	AnonymousLogin bool
@@ -22,26 +22,48 @@ type Installer struct {
 }
 
 var (
-	ErrAlreadyInstalling = errors.New("We're aleady installing")
+	ErrAlreadyRunning = errors.New("We're aleady running")
 )
 
-func (i *Installer) Installing() bool {
+func (i *Installer) Running() bool {
 	i.mu.Lock()
 	defer i.mu.Unlock()
-	return i.installing
+	return i.running
 }
 
 func (i *Installer) Install(appId steam.AppId) error {
+	if err := i.start(); err == nil {
+		go i.getClient().InstallApp(appId, i.interviewer)
+		return nil
+	} else {
+		return err
+	}
+}
+
+func (i *Installer) Update(app *App) (err error) {
+	if err := i.start(); err == nil {
+		go i.getClient().UpdateApp(app, i.interviewer)
+		return nil
+	} else {
+		return err
+	}
+}
+
+func (i Installer) start() error {
 	i.mu.Lock()
-	installing := i.installing
-	if !installing {
-		i.installing = true
+	running := i.running
+	if !running {
+		i.running = true
 	}
 	i.mu.Unlock()
-	if installing {
-		return ErrAlreadyInstalling
+	if running {
+		return ErrAlreadyRunning
+	} else {
+		return nil
 	}
+}
 
+func (i *Installer) getClient() *Client {
 	if i.Questions == nil {
 		i.Questions = make(chan *Question, 1)
 	}
@@ -54,7 +76,7 @@ func (i *Installer) Install(appId steam.AppId) error {
 			close(i.Questions)
 			close(i.Answers)
 			i.mu.Lock()
-			i.installing = false
+			i.running = false
 			i.mu.Unlock()
 			return ""
 		} else {
@@ -63,16 +85,11 @@ func (i *Installer) Install(appId steam.AppId) error {
 		return <-i.Answers
 	}
 
-	go i.run(appId)
-	return nil
-}
-
-func (i *Installer) run(appId steam.AppId) {
 	c := Client{}
 	if !i.AnonymousLogin {
 		c.AuthUser = i.interviewer("What is your Steam username?", false)
 		c.AuthPw = i.interviewer("What is your Steam password?", true)
 	}
 
-	c.InstallApp(appId, i.interviewer)
+	return &c
 }

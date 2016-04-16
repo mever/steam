@@ -53,7 +53,7 @@ func (c *Client) GetApp(id steam.AppId) *App {
 	if os.IsNotExist(err) {
 		return nil
 	} else {
-		return &App{dir: appDir}
+		return &App{id: id, dir: appDir}
 	}
 }
 
@@ -68,20 +68,33 @@ func (c *Client) InstallApp(id steam.AppId, i Interviewer) (err error) {
 		err = c.installClient()
 	}
 
-	return c.installApp(id, i)
+	return c.installOrUpdateApp(id.Id(), c.getAppDir(id), i)
 }
 
-func (c *Client) newInterview(i Interviewer) *interviewer {
-	return &interviewer{w: c.Stdout, fn: i}
+var (
+	ErrNoAppId  = errors.New("We're aleady running")
+	ErrNoAppDir = errors.New("We're aleady running")
+)
+
+func (c *Client) UpdateApp(a *App, i Interviewer) error {
+	if a.id.Id() == "" {
+		return ErrNoAppId
+	}
+
+	if a.dir == "" {
+		return ErrNoAppDir
+	}
+
+	c.completeConfig()
+	return c.installOrUpdateApp(a.id.Id(), a.dir, i)
 }
 
 func (c *Client) getAppDir(id steam.AppId) string {
 	return c.AppsDir + "/" + id.Id()
 }
 
-func (c *Client) installApp(app steam.AppId, i Interviewer) error {
-	appDir := c.getAppDir(app)
-	cmd := c.buildCmd("+force_install_dir", appDir, "+app_update", app.Id(), "validate")
+func (c *Client) installOrUpdateApp(appId, appDir string, i Interviewer) error {
+	cmd := c.buildCmd("+force_install_dir", appDir, "+app_update", appId, "validate")
 
 	tty, err := pty.Start(cmd)
 	if err != nil {
@@ -90,8 +103,8 @@ func (c *Client) installApp(app steam.AppId, i Interviewer) error {
 
 	defer tty.Close()
 
-	interview := c.newInterview(i)
-	defer interview.fn("", false)
+	interview := &interviewer{w: c.Stdout, fn: i}
+	defer interview.fn("", false) // no more questions
 
 	interview.Run(tty)
 	return cmd.Wait()

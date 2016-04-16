@@ -1,10 +1,12 @@
 package cmd
 
 import (
+	"github.com/mever/steam"
 	"os"
 )
 
 type App struct {
+	id  steam.AppId
 	dir string
 }
 
